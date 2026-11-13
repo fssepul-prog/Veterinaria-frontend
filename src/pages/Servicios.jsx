@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import { Col, Container, Row } from 'react-bootstrap'
+import { Alert, Col, Container, Row } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import TarjetaServicio from '../components/TarjetaServicio.jsx'
-import { servicios } from '../data/servicios.js'
+import Cargando from '../components/Cargando'
+import { useCarga } from '../hooks/useCarga'
+import { listarServicios } from '../services/servicioService'
+import { pesos } from '../utils/formato'
 
-const categorias = ['Todas', 'Consultas', 'Vacunación', 'Desparasitación', 'Cirugía', 'Otros']
+const categorias = ['Todas', 'Consultas', 'Vacunación', 'Desparasitación', 'Cirugía', 'Exámenes', 'Otros']
 
 function Servicios() {
   const [categoria, setCategoria] = useState('Todas')
+  const { datos, cargando, error } = useCarga(listarServicios)
+  const servicios = datos ?? []
 
   const visibles =
     categoria === 'Todas'
@@ -51,7 +56,9 @@ function Servicios() {
             {categoria === 'Todas' ? 'Todos los servicios' : categoria}
           </h2>
 
-          {visibles.length === 0 ? (
+          {cargando && <Cargando texto="Cargando servicios..." />}
+          {error && <Alert variant="danger">{error}</Alert>}
+          {!cargando && !error && visibles.length === 0 ? (
             <p className="text-muted">No hay servicios disponibles en esta categoría.</p>
           ) : (
             <Row className="g-4 mt-1">
@@ -86,13 +93,13 @@ function Servicios() {
                     <td>{s.nombre}</td>
                     <td>{s.especie}</td>
                     <td className="d-none d-md-table-cell">{s.duracion}</td>
-                    <td>${s.precio.toLocaleString('es-CL')}</td>
+                    <td>{pesos(s.precio)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p><small className="text-muted">Valores de agosto de 2026, sujetos a evaluación clínica previa.</small></p>
+          <p><small className="text-muted">Valores sujetos a evaluación clínica previa.</small></p>
         </section>
 
         {/* ── Aviso ── */}

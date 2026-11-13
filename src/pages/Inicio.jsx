@@ -1,11 +1,13 @@
-import { Col, Container, Row } from 'react-bootstrap'
+import { Alert, Col, Container, Row } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import TarjetaServicio from '../components/TarjetaServicio.jsx'
-import { servicios } from '../data/servicios.js'
+import Cargando from '../components/Cargando'
+import { useCarga } from '../hooks/useCarga'
+import { listarServicios } from '../services/servicioService'
 
 function Inicio() {
-
-  const serviciosDestacados = servicios.slice(0, 3)
+  const { datos, cargando, error } = useCarga(listarServicios)
+  const serviciosDestacados = (datos ?? []).slice(0, 3)
 
   return (
     <main>
@@ -34,6 +36,8 @@ function Inicio() {
             completo visite la página de servicios.
           </p>
 
+          {cargando && <Cargando texto="Cargando servicios..." />}
+          {error && <Alert variant="danger">{error}</Alert>}
           <Row className="g-4">
             {serviciosDestacados.map((servicio) => (
               <Col xs={12} md={6} lg={4} key={servicio.id}>

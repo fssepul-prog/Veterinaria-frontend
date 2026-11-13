@@ -1,36 +1,56 @@
-import { useEffect, useState } from "react";
-import { Col, Row } from "react-bootstrap";
+import { useState } from "react";
+import { Alert, Col, Row } from "react-bootstrap";
 import FormularioServicio from "../../components/FormularioServicio";
-import { servicios as serviciosIniciales } from "../../data/servicios";
+import Cargando from "../../components/Cargando";
+import { useCarga } from "../../hooks/useCarga";
+import {
+  actualizarServicio, crearServicio, eliminarServicio, listarServicios,
+} from "../../services/servicioService";
+import { pesos } from "../../utils/formato";
 
 const categorias = ["Todas", "Consultas", "Vacunación", "Cirugía", "Desparasitación", "Exámenes", "Otros"];
 
 function AdminServicios() {
   const [categoria, setCategoria] = useState("Todas");
-
-  const [servicios, setServicios] = useState(() => {
-    const guardados = localStorage.getItem("servicios");
-    return guardados ? JSON.parse(guardados) : serviciosIniciales;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("servicios", JSON.stringify(servicios));
-  }, [servicios]);
+  const [editando, setEditando] = useState(null);
+  const [confirmarId, setConfirmarId] = useState(null);
+  const { datos, setDatos, cargando, error, setError } = useCarga(listarServicios);
+  const servicios = datos ?? [];
 
   const visibles =
     categoria === "Todas"
       ? servicios
       : servicios.filter((servicio) => servicio.categoria === categoria);
 
-  // Agrega un servicio nuevo solo si su código no existe ya en la lista
-  function guardar(servicio) {
-    const yaExiste = servicios.some((item) => item.codigo === servicio.codigo);
-    if (yaExiste) return;
-    setServicios([...servicios, servicio]);
+  // Devuelve true solo si el backend guardó el servicio
+  async function guardar(servicio) {
+    setError("");
+    try {
+      if (editando) {
+        const actualizado = await actualizarServicio(editando.id, servicio);
+        setDatos(servicios.map((s) => (s.id === actualizado.id ? actualizado : s)));
+        setEditando(null);
+      } else {
+        const creado = await crearServicio(servicio);
+        setDatos([...servicios, creado]);
+      }
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    }
   }
 
-  function eliminar(codigo) {
-    setServicios(servicios.filter((item) => item.codigo !== codigo));
+  async function eliminar(id) {
+    setError("");
+    try {
+      await eliminarServicio(id);
+      setDatos(servicios.filter((item) => item.id !== id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setConfirmarId(null);
+    }
   }
 
   return (
@@ -52,47 +72,68 @@ function AdminServicios() {
         </div>
       </section>
 
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+
       <Row className="g-4">
         <Col xs={12} lg={8}>
-          <div className="table-responsive">
-            <table className="table table-bordered table-hover">
-              <caption>Servicios de la clínica</caption>
-              <thead className="table-success">
-                <tr>
-                  <th scope="col">Código</th>
-                  <th scope="col">Servicio</th>
-                  <th scope="col">Categoría</th>
-                  <th scope="col" className="d-none d-md-table-cell">Duración</th>
-                  <th scope="col">Precio</th>
-                  <th scope="col">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((servicio) => (
-                  <tr key={servicio.codigo}>
-                    <th scope="row">{servicio.codigo}</th>
-                    <td>{servicio.nombre}</td>
-                    <td>{servicio.categoria}</td>
-                    <td className="d-none d-md-table-cell">{servicio.duracion}</td>
-                    <td>${servicio.precio.toLocaleString("es-CL")}</td>
-                    <td>
-                      <button
-                        className="btn btn-danger"
-                        onClick={() => eliminar(servicio.codigo)}
-                      >
-                        Eliminar
-                      </button>
-                    </td>
+          {cargando ? <Cargando texto="Cargando servicios..." /> : (
+            <div className="table-responsive">
+              <table className="table table-bordered table-hover">
+                <caption>Servicios de la clínica</caption>
+                <thead className="table-success">
+                  <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Servicio</th>
+                    <th scope="col">Categoría</th>
+                    <th scope="col" className="d-none d-md-table-cell">Duración</th>
+                    <th scope="col">Precio</th>
+                    <th scope="col">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visibles.length === 0 && (
+                    <tr><td colSpan={6} className="text-center text-muted py-3">No hay servicios en esta categoría.</td></tr>
+                  )}
+                  {visibles.map((servicio) => (
+                    <tr key={servicio.id}>
+                      <th scope="row">{servicio.codigo}</th>
+                      <td>{servicio.nombre}</td>
+                      <td>{servicio.categoria}</td>
+                      <td className="d-none d-md-table-cell">{servicio.duracion}</td>
+                      <td>{pesos(servicio.precio)}</td>
+                      <td>
+                        {confirmarId === servicio.id ? (
+                          <div className="d-flex flex-wrap gap-1">
+                            <span className="small align-self-center">¿Eliminar?</span>
+                            <button className="btn btn-danger btn-sm" onClick={() => eliminar(servicio.id)}>Sí</button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setConfirmarId(null)}>No</button>
+                          </div>
+                        ) : (
+                          <div className="d-flex flex-wrap gap-1">
+                            <button className="btn btn-outline-success btn-sm" onClick={() => setEditando(servicio)}>
+                              Editar
+                            </button>
+                            <button className="btn btn-outline-danger btn-sm" onClick={() => setConfirmarId(servicio.id)}>
+                              Eliminar
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Col>
 
         <Col xs={12} lg={4}>
-          <h2 className="h5">Nuevo servicio</h2>
-          <FormularioServicio onGuardar={guardar} />
+          <h2 className="h5">{editando ? `Editar ${editando.nombre}` : "Nuevo servicio"}</h2>
+          <FormularioServicio
+            servicioEditando={editando}
+            onGuardar={guardar}
+            onCancelar={editando ? () => setEditando(null) : undefined}
+          />
         </Col>
       </Row>
     </main>

@@ -1,136 +1,156 @@
-import { useState, useEffect } from 'react'
-import { Container, Row, Col } from 'react-bootstrap'
+import { Alert, Container } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { useCarga } from '../../hooks/useCarga'
+import { listarMisCitas } from '../../services/citaService'
+import { listarMisFichas } from '../../services/fichaService'
+import { diasHasta, formatearFecha } from '../../utils/formato'
+import EstadoCita from '../../components/EstadoCita'
+import Cargando from '../../components/Cargando'
 
-const HISTORIAL_DEMO = [
-  { fecha: '10-06-2026', motivo: 'Control anual',      diagnostico: 'Sana, al día con vacunas'        },
-  { fecha: '22-03-2026', motivo: 'Vómitos',            diagnostico: 'Gastritis leve, en tratamiento'  },
-  { fecha: '05-01-2026', motivo: 'Vacuna antirrábica', diagnostico: 'Aplicada sin reacciones'          },
-]
+const DIAS_AVISO_VACUNA = 30
+
+// Agrupa las atenciones por mascota para mostrar un historial por cada una
+function agruparPorMascota(fichas) {
+  const grupos = new Map()
+  for (const ficha of fichas) {
+    const id = ficha.paciente.id
+    if (!grupos.has(id)) grupos.set(id, { paciente: ficha.paciente, fichas: [] })
+    grupos.get(id).fichas.push(ficha)
+  }
+  return [...grupos.values()]
+}
+
+// Para cada mascota, la próxima vacuna registrada en su atención más reciente
+function vacunasPorVencer(grupos) {
+  return grupos
+    .map(({ paciente, fichas }) => {
+      const conVacuna = fichas.filter((f) => f.proximaVacuna).sort((a, b) => b.fecha.localeCompare(a.fecha))
+      return conVacuna.length ? { paciente, ficha: conVacuna[0], dias: diasHasta(conVacuna[0].proximaVacuna) } : null
+    })
+    .filter((v) => v && v.dias <= DIAS_AVISO_VACUNA)
+}
 
 function MiCuenta() {
-  const [sesion, setSesion] = useState(() => {
-    const guardada = localStorage.getItem('sesion')
-    return guardada ? JSON.parse(guardada) : null
-  })
-  const [misCitas, setMisCitas] = useState([])
+  const { sesion } = useAuth()
+  const citas  = useCarga(listarMisCitas)
+  const fichas = useCarga(listarMisFichas)
 
-  useEffect(() => {
-    if (!sesion) return
-    const guardadas = JSON.parse(localStorage.getItem('citas') || '[]')
-    setMisCitas(guardadas.filter((c) => c.nombre === sesion.nombre))
-  }, [sesion])
-
-  function cerrarSesion() {
-    localStorage.removeItem('sesion')
-    setSesion(null)
-    setMisCitas([])
-  }
-
-  if (!sesion) {
-    return (
-      <main>
-        <Container className="py-5">
-          <Row className="justify-content-center">
-            <Col xs={12} sm={8} md={6}>
-              <div className="aviso text-center py-5">
-                <h1 className="h4">Acceso restringido</h1>
-                <p className="mt-3">
-                  Debes iniciar sesión para ver tu cuenta.
-                </p>
-                <Link to="/ingreso" className="btn btn-success mt-2">
-                  Ir a Ingresar
-                </Link>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </main>
-    )
-  }
+  const grupos = agruparPorMascota(fichas.datos ?? [])
+  const avisos = vacunasPorVencer(grupos)
 
   return (
     <main>
       <Container className="py-4">
 
-        <header className="encabezado-pagina d-flex justify-content-between align-items-start flex-wrap gap-2">
-          <div>
-            <p className="etiqueta">Bienvenido, {sesion.nombre}</p>
-            <h1>Mi cuenta</h1>
-            <p>
-              Revisa el historial clínico de tus mascotas y el estado de tus
-              solicitudes de hora.
-            </p>
-          </div>
-          <button
-            className="btn btn-outline-success mt-2"
-            onClick={cerrarSesion}
-          >
-            Cerrar sesión
-          </button>
+        <header className="encabezado-pagina">
+          <p className="etiqueta">Bienvenido, {sesion.nombre}</p>
+          <h1>Mi cuenta</h1>
+          <p>
+            Revisa el estado de tus solicitudes de hora y el historial clínico de tus mascotas.
+          </p>
         </header>
 
-        <section aria-labelledby="titulo-historial" className="mb-5">
-          <h2 id="titulo-historial">Historial clínico</h2>
-          <p className="text-muted mb-3">
-            Ejemplo de historial de una mascota registrada (datos de demostración).
-          </p>
-          <div className="tabla-contenedor">
-            <table className="table table-striped">
-              <caption>Historial de Luna (gata)</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Fecha</th>
-                  <th scope="col">Motivo</th>
-                  <th scope="col">Diagnóstico</th>
-                </tr>
-              </thead>
-              <tbody>
-                {HISTORIAL_DEMO.map((registro, i) => (
-                  <tr key={i}>
-                    <td>{registro.fecha}</td>
-                    <td>{registro.motivo}</td>
-                    <td>{registro.diagnostico}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {avisos.map(({ paciente, ficha, dias }) => (
+          <Alert key={paciente.id} variant={dias < 0 ? 'danger' : 'warning'}>
+            <strong>{paciente.nombre}:</strong>{' '}
+            {dias < 0
+              ? `la vacuna "${ficha.vacuna}" venció el ${formatearFecha(ficha.proximaVacuna)}.`
+              : `la próxima dosis de "${ficha.vacuna}" vence el ${formatearFecha(ficha.proximaVacuna)} (en ${dias} días).`}
+            {' '}<Link to="/citas" className="alert-link">Solicitar hora</Link>
+          </Alert>
+        ))}
+
+        <section aria-labelledby="titulo-mis-citas" className="mb-5">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 id="titulo-mis-citas">Mis citas</h2>
+            <Link to="/citas" className="btn btn-success btn-sm">Solicitar hora</Link>
           </div>
+          {citas.cargando && <Cargando texto="Cargando tus citas..." />}
+          {citas.error && <Alert variant="danger">{citas.error}</Alert>}
+          {citas.datos && (
+            <div className="tabla-contenedor">
+              <table className="table table-striped">
+                <caption>Solicitudes de hora de {sesion.nombre}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Mascota</th>
+                    <th scope="col">Servicio</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Hora</th>
+                    <th scope="col">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {citas.datos.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center text-muted py-3">
+                        Aún no has solicitado horas.
+                      </td>
+                    </tr>
+                  ) : (
+                    citas.datos.map((cita) => (
+                      <tr key={cita.id}>
+                        <td>{cita.mascota}</td>
+                        <td>{cita.servicio?.nombre}</td>
+                        <td>{formatearFecha(cita.fecha)}</td>
+                        <td>{cita.hora}</td>
+                        <td>
+                          <EstadoCita estado={cita.estado} />
+                          {cita.estado === 'Reagendada' && (
+                            <div><small className="text-muted">La clínica propuso este nuevo horario.</small></div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
-        <section aria-labelledby="titulo-mis-citas">
-          <h2 id="titulo-mis-citas">Mis citas solicitadas</h2>
-          <div className="tabla-contenedor">
-            <table className="table table-striped">
-              <caption>Citas solicitadas por {sesion.nombre}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Mascota</th>
-                  <th scope="col">Especie</th>
-                  <th scope="col">Servicio</th>
-                  <th scope="col">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {misCitas.length === 0 ? (
+        <section aria-labelledby="titulo-historial">
+          <h2 id="titulo-historial">Historial clínico de mis mascotas</h2>
+          {fichas.cargando && <Cargando texto="Cargando historial..." />}
+          {fichas.error && <Alert variant="danger">{fichas.error}</Alert>}
+          {fichas.datos && grupos.length === 0 && (
+            <p className="text-muted">
+              Aún no hay atenciones registradas para tus mascotas. Aparecerán aquí después de su primera consulta.
+            </p>
+          )}
+          {grupos.map(({ paciente, fichas: atenciones }) => (
+            <div className="tabla-contenedor mb-4" key={paciente.id}>
+              <table className="table table-striped">
+                <caption>Historial de {paciente.nombre} ({paciente.especie})</caption>
+                <thead>
                   <tr>
-                    <td colSpan={4} className="text-center text-muted py-3">
-                      No tienes citas agendadas.
-                    </td>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Motivo</th>
+                    <th scope="col">Diagnóstico</th>
+                    <th scope="col">Medicamento</th>
+                    <th scope="col">Vacuna</th>
+                    <th scope="col">Próximo control</th>
                   </tr>
-                ) : (
-                  misCitas.map((cita) => (
-                    <tr key={cita.id}>
-                      <td>{cita.mascota}</td>
-                      <td>{cita.especie}</td>
-                      <td>{cita.servicio}</td>
-                      <td>{cita.estado ?? 'Pendiente'}</td>
+                </thead>
+                <tbody>
+                  {atenciones.map((f) => (
+                    <tr key={f.id}>
+                      <td>{formatearFecha(f.fecha)}</td>
+                      <td>{f.motivo}</td>
+                      <td>{f.diagnostico}</td>
+                      <td>{f.medicamento || '—'}</td>
+                      <td>
+                        {f.vacuna || '—'}
+                        {f.proximaVacuna && <div><small className="text-muted">Próxima: {formatearFecha(f.proximaVacuna)}</small></div>}
+                      </td>
+                      <td>{formatearFecha(f.proximoControl)}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </section>
 
       </Container>

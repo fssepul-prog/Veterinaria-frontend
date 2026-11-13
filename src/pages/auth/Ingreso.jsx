@@ -1,49 +1,40 @@
 import { useState } from 'react'
 import { Container, Row, Col } from 'react-bootstrap'
-import { Link, useNavigate } from 'react-router-dom'
-
-
-
-// hay que realizar los cambios correspondientes debido a que ahora se utilizara una base de datos(remover cuentas hardcodeadas). 
-const USUARIOS_DEMO = [
-  { email: 'admin@sanmarcos.cl',     contrasena: 'admin123',   nombre: 'Administrador', rol: 'Administrador' },
-  { email: 'recepcion@sanmarcos.cl', contrasena: 'recep123',   nombre: 'Recepcionista', rol: 'Recepcionista' },
-  { email: 'cliente@sanmarcos.cl',   contrasena: 'cliente123', nombre: 'Cliente Demo',  rol: 'Cliente'       },
-]
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { RUTA_INICIO } from '../../utils/roles'
 
 const ESTADO_INICIAL = { email: '', contrasena: '' }
 
-const RUTA_POR_ROL = {
-  Administrador: '/admin/servicios',
-  Recepcionista: '/recepcion/citas',
-  Cliente:       '/mi-cuenta',
-}
-
 function Ingreso() {
-  const navigate              = useNavigate()
-  const [form, setForm]       = useState(ESTADO_INICIAL)
-  const [error, setError]     = useState('')
+  const navigate                  = useNavigate()
+  const { sesion, iniciarSesion } = useAuth()
+  const [form, setForm]           = useState(ESTADO_INICIAL)
+  const [error, setError]         = useState('')
+  const [enviando, setEnviando]   = useState(false)
+
+  if (sesion) return <Navigate to={RUTA_INICIO[sesion.rol]} replace />
 
   function manejarCambio(e) {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  function manejarEnvio(e) {
+  async function manejarEnvio(e) {
     e.preventDefault()
-    const usuario = USUARIOS_DEMO.find(
-      (u) => u.email === form.email && u.contrasena === form.contrasena
-    )
-    if (!usuario) {
-      setError('Correo o contraseña incorrectos.')
+    if (!form.email.trim() || !form.contrasena) {
+      setError('Ingresa tu correo y tu contraseña.')
       return
     }
-    // Guarda solo email, nombre y rol — nunca la contraseña
-    localStorage.setItem('sesion', JSON.stringify({
-      email: usuario.email,
-      nombre: usuario.nombre,
-      rol: usuario.rol,
-    }))
-    navigate(RUTA_POR_ROL[usuario.rol] ?? '/')
+    setError('')
+    setEnviando(true)
+    try {
+      const usuario = await iniciarSesion({ correo: form.email.trim(), password: form.contrasena })
+      navigate(RUTA_INICIO[usuario.rol] ?? '/')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -60,7 +51,7 @@ function Ingreso() {
                 </p>
 
                 {error && (
-                  <div className="alert alert-danger py-2">{error}</div>
+                  <div className="alert alert-danger py-2" role="alert">{error}</div>
                 )}
 
                 <form onSubmit={manejarEnvio} noValidate>
@@ -91,22 +82,10 @@ function Ingreso() {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-success w-100">
-                    Ingresar
+                  <button type="submit" className="btn btn-success w-100" disabled={enviando}>
+                    {enviando ? 'Ingresando...' : 'Ingresar'}
                   </button>
                 </form>
-
-                <div className="mt-4 p-3 bg-light rounded">
-                  <p className="mb-1"><small><strong>Cuentas de demostración:</strong></small></p>
-                  {USUARIOS_DEMO.map((u) => (
-                    <p key={u.email} className="mb-0">
-                      <small>
-                        <strong>{u.rol}:</strong> <code>{u.email}</code> /{' '}
-                        <code>{u.contrasena}</code>
-                      </small>
-                    </p>
-                  ))}
-                </div>
 
                 <hr className="my-4" />
 

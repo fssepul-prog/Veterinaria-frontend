@@ -1,47 +1,50 @@
 import { useState } from 'react'
 import { Container, Row, Col } from 'react-bootstrap'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { RUTA_INICIO } from '../../utils/roles'
 
-const ESTADO_INICIAL = { nombre: '', email: '', contrasena: '' }
+const ESTADO_INICIAL = { nombre: '', email: '', telefono: '', contrasena: '' }
 
 function Registro() {
-  const [form, setForm]       = useState(ESTADO_INICIAL)
-  const [registrado, setRegistrado] = useState(false)
+  const navigate                = useNavigate()
+  const { sesion, registrarse } = useAuth()
+  const [form, setForm]         = useState(ESTADO_INICIAL)
+  const [error, setError]       = useState('')
+  const [enviando, setEnviando] = useState(false)
+
+  if (sesion) return <Navigate to={RUTA_INICIO[sesion.rol]} replace />
 
   function manejarCambio(e) {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  function manejarEnvio(e) {
+  async function manejarEnvio(e) {
     e.preventDefault()
-    const usuarios = JSON.parse(localStorage.getItem('usuarios') || '[]')
-    // La contraseña no se almacena
-    usuarios.push({ nombre: form.nombre, email: form.email, fechaRegistro: Date.now() })
-    localStorage.setItem('usuarios', JSON.stringify(usuarios))
-    setRegistrado(true)
-  }
-
-  if (registrado) {
-    return (
-      <main>
-        <Container className="py-5">
-          <Row className="justify-content-center">
-            <Col xs={12} sm={8} md={6} lg={5}>
-              <div className="aviso text-center py-5">
-                <h1 className="h4">¡Registro completado!</h1>
-                <p className="mt-3">
-                  Tu cuenta ha sido registrada. En esta etapa del proyecto
-                  la autenticación aún no está activa.
-                </p>
-                <Link to="/ingreso" className="btn btn-success mt-2">
-                  Ir a Ingresar
-                </Link>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </main>
-    )
+    if (!form.nombre.trim() || !form.email.trim()) {
+      setError('Completa tu nombre y tu correo.')
+      return
+    }
+    if (form.contrasena.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    setError('')
+    setEnviando(true)
+    try {
+      // El backend siempre crea la cuenta con rol de dueño de mascota
+      await registrarse({
+        nombre: form.nombre.trim(),
+        correo: form.email.trim(),
+        telefono: form.telefono.trim(),
+        password: form.contrasena,
+      })
+      navigate(RUTA_INICIO.CLIENTE)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -54,8 +57,12 @@ function Registro() {
               <div className="card-body p-4">
                 <h1 className="h4 mb-1 text-center">Crear cuenta</h1>
                 <p className="text-muted text-center mb-4">
-                  Regístrate para gestionar tus solicitudes de hora.
+                  Regístrate para solicitar horas y revisar el historial de tus mascotas.
                 </p>
+
+                {error && (
+                  <div className="alert alert-danger py-2" role="alert">{error}</div>
+                )}
 
                 <form onSubmit={manejarEnvio} noValidate>
                   <div className="mb-3">
@@ -87,6 +94,20 @@ function Registro() {
                   </div>
 
                   <div className="mb-3">
+                    <label htmlFor="telefono" className="form-label">Teléfono (opcional)</label>
+                    <input
+                      type="tel"
+                      id="telefono"
+                      name="telefono"
+                      className="form-control"
+                      value={form.telefono}
+                      onChange={manejarCambio}
+                      placeholder="+56 9 1234 5678"
+                      autoComplete="tel"
+                    />
+                  </div>
+
+                  <div className="mb-3">
                     <label htmlFor="contrasena" className="form-label">Contraseña</label>
                     <input
                       type="password"
@@ -96,11 +117,13 @@ function Registro() {
                       value={form.contrasena}
                       onChange={manejarCambio}
                       autoComplete="new-password"
+                      aria-describedby="ayuda-contrasena"
                     />
+                    <div id="ayuda-contrasena" className="form-text">Mínimo 8 caracteres.</div>
                   </div>
 
-                  <button type="submit" className="btn btn-success w-100">
-                    Crear cuenta
+                  <button type="submit" className="btn btn-success w-100" disabled={enviando}>
+                    {enviando ? 'Creando cuenta...' : 'Crear cuenta'}
                   </button>
                 </form>
 

@@ -1,6 +1,9 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import Navegacion from './components/Navegacion'
 import PiePagina from './components/PiePagina'
+import RutaProtegida from './components/RutaProtegida'
+import { useAuth } from './context/AuthContext'
+import { esPersonal } from './utils/roles'
 import Inicio from './pages/Inicio.jsx'
 import Nosotros from './pages/Nosotros.jsx'
 import Servicios from './pages/Servicios.jsx'
@@ -17,40 +20,52 @@ import AdminCitas from './pages/admin/AdminCitas'
 import AdminUsuarios from './pages/admin/AdminUsuarios'
 import AdminReportes from './pages/admin/AdminReportes'
 import AdminHistorial from './pages/admin/AdminHistorial'
+import DetalleFicha from './pages/admin/DetalleFicha'
 import RecepcionCitas from './pages/recepcionista/RecepcionCitas'
 import RecepcionFichas from './pages/recepcionista/RecepcionFichas'
-import DetalleFicha from "./pages/admin/DetalleFicha";
-
 
 function App() {
-    const { pathname } = useLocation()
-    const esAdmin = pathname.startsWith('/admin') || pathname.startsWith('/recepcion')
+    const { sesion } = useAuth()
 
     return (
         <>
             <Navegacion />
             <Routes>
-                <Route path="/"                    element={<Inicio />} />
-                <Route path="/nosotros"            element={<Nosotros />} />
-                <Route path="/servicios"           element={<Servicios />} />
-                <Route path="/servicios/:id"       element={<DetalleServicio />} />
-                <Route path="/agenda"              element={<Agenda />} />
-                <Route path="/recursos"            element={<Recursos />} />
-                <Route path="/citas"               element={<Citas />} />
-                <Route path="/ingreso"             element={<Ingreso />} />
-                <Route path="/registro"            element={<Registro />} />
-                <Route path="/mi-cuenta"           element={<MiCuenta />} />
-                <Route path="/admin/servicios"     element={<AdminServicios />} />
-                <Route path="/admin/citas"         element={<AdminCitas />} />
-                <Route path="/admin/usuarios"      element={<AdminUsuarios />} />
-                <Route path="/admin/reportes"          element={<AdminReportes />} />
-                <Route path="/admin/historial"         element={<AdminHistorial />} />
-                <Route path="/recepcion/citas"         element={<RecepcionCitas />} />
-                <Route path="/recepcion/fichas"        element={<RecepcionFichas />} />
-                <Route path="/admin/historial/:id" element={<DetalleFicha />} />
-                <Route path="*"                        element={<NoEncontrada />} />
+                {/* Únicas vistas sin autenticación, según la regla de seguridad del caso */}
+                <Route path="/ingreso"  element={<Ingreso />} />
+                <Route path="/registro" element={<Registro />} />
+
+                <Route element={<RutaProtegida />}>
+                    <Route path="/"              element={<Inicio />} />
+                    <Route path="/nosotros"      element={<Nosotros />} />
+                    <Route path="/servicios"     element={<Servicios />} />
+                    <Route path="/servicios/:id" element={<DetalleServicio />} />
+                    <Route path="/agenda"        element={<Agenda />} />
+                    <Route path="/recursos"      element={<Recursos />} />
+
+                    <Route element={<RutaProtegida roles={['CLIENTE']} />}>
+                        <Route path="/citas"     element={<Citas />} />
+                        <Route path="/mi-cuenta" element={<MiCuenta />} />
+                    </Route>
+
+                    <Route element={<RutaProtegida roles={['ADMIN', 'RECEPCIONISTA']} />}>
+                        <Route path="/recepcion/citas"  element={<RecepcionCitas />} />
+                        <Route path="/recepcion/fichas" element={<RecepcionFichas />} />
+                    </Route>
+
+                    <Route element={<RutaProtegida roles={['ADMIN']} />}>
+                        <Route path="/admin/servicios"     element={<AdminServicios />} />
+                        <Route path="/admin/citas"         element={<AdminCitas />} />
+                        <Route path="/admin/usuarios"      element={<AdminUsuarios />} />
+                        <Route path="/admin/reportes"      element={<AdminReportes />} />
+                        <Route path="/admin/historial"     element={<AdminHistorial />} />
+                        <Route path="/admin/historial/:id" element={<DetalleFicha />} />
+                    </Route>
+                </Route>
+
+                <Route path="*" element={<NoEncontrada />} />
             </Routes>
-            <PiePagina esAdmin={esAdmin} />
+            <PiePagina esAdmin={esPersonal(sesion?.rol)} />
         </>
     )
 }
