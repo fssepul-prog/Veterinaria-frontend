@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import { pesos } from '../utils/formato'
+
 function TarjetaServicio({ servicio }) {
   return (
       <article className="card h-100">
@@ -16,7 +18,7 @@ function TarjetaServicio({ servicio }) {
             <small><strong>Duración:</strong> {servicio.duracion}</small>
           </p>
           <p className="card-text">
-            <strong>Precio:</strong> ${servicio.precio.toLocaleString('es-CL')}
+            <strong>Precio:</strong> {pesos(servicio.precio)}
           </p>
 
           <div className="d-flex gap-2 mt-auto">
@@ -26,7 +28,7 @@ function TarjetaServicio({ servicio }) {
             >
               Ver detalle
             </Link>
-            <Link to="/citas" className="btn btn-success btn-sm">
+            <Link to={`/citas?servicio=${servicio.id}`} className="btn btn-success btn-sm">
               Solicitar hora
             </Link>
           </div>

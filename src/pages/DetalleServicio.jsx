@@ -1,13 +1,13 @@
 import { useParams, Link } from 'react-router-dom'
-import { Container, Row, Col } from 'react-bootstrap'
-import { servicios } from '../data/servicios.js'
-import NoEncontrada from './NoEncontrada.jsx'
+import { Alert, Container, Row, Col } from 'react-bootstrap'
+import Cargando from '../components/Cargando'
+import { useCarga } from '../hooks/useCarga'
+import { buscarServicio } from '../services/servicioService'
+import { pesos } from '../utils/formato'
 
 function DetalleServicio() {
   const { id } = useParams()
-  const servicio = servicios.find((s) => s.id === Number(id))
-
-  if (!servicio) return <NoEncontrada />
+  const { datos: servicio, cargando, error } = useCarga(() => buscarServicio(id), [id])
 
   return (
     <main>
@@ -19,55 +19,62 @@ function DetalleServicio() {
           </Link>
         </nav>
 
-        <Row className="g-4">
-          <Col xs={12} md={6}>
-            <img
-              src={'/' + servicio.imagen}
-              alt={servicio.nombre}
-              className="img-fluid rounded"
-              style={{ maxHeight: '22rem', width: '100%', objectFit: 'cover' }}
-            />
-          </Col>
+        {cargando && <Cargando texto="Cargando servicio..." />}
+        {error && <Alert variant="danger">{error}</Alert>}
 
-          <Col xs={12} md={6}>
-            <p className="etiqueta">{servicio.categoria}</p>
-            <h1 className="h2">{servicio.nombre}</h1>
+        {servicio && (
+          <Row className="g-4">
+            <Col xs={12} md={6}>
+              {servicio.imagen && (
+                <img
+                  src={'/' + servicio.imagen}
+                  alt={servicio.nombre}
+                  className="img-fluid rounded"
+                  style={{ maxHeight: '22rem', width: '100%', objectFit: 'cover' }}
+                />
+              )}
+            </Col>
 
-            <p className="mt-3">{servicio.descripcion}</p>
+            <Col xs={12} md={6}>
+              <p className="etiqueta">{servicio.categoria}</p>
+              <h1 className="h2">{servicio.nombre}</h1>
 
-            <table className="table table-bordered mt-3">
-              <tbody>
-                <tr>
-                  <th scope="row">Código</th>
-                  <td>{servicio.codigo}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Especie</th>
-                  <td>{servicio.especie}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Duración estimada</th>
-                  <td>{servicio.duracion}</td>
-                </tr>
-                <tr>
-                  <th scope="row">Precio referencial</th>
-                  <td><strong>${servicio.precio.toLocaleString('es-CL')}</strong></td>
-                </tr>
-              </tbody>
-            </table>
+              <p className="mt-3">{servicio.descripcion}</p>
 
-            <p>
-              <small className="text-muted">
-                El precio es referencial y puede variar según el tamaño y la
-                condición del paciente.
-              </small>
-            </p>
+              <table className="table table-bordered mt-3">
+                <tbody>
+                  <tr>
+                    <th scope="row">Código</th>
+                    <td>{servicio.codigo}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Especie</th>
+                    <td>{servicio.especie}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Duración estimada</th>
+                    <td>{servicio.duracion}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Precio referencial</th>
+                    <td><strong>{pesos(servicio.precio)}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
 
-            <Link to="/citas" className="btn btn-success mt-2">
-              Solicitar hora para este servicio
-            </Link>
-          </Col>
-        </Row>
+              <p>
+                <small className="text-muted">
+                  El precio es referencial y puede variar según el tamaño y la
+                  condición del paciente.
+                </small>
+              </p>
+
+              <Link to={`/citas?servicio=${servicio.id}`} className="btn btn-success mt-2">
+                Solicitar hora para este servicio
+              </Link>
+            </Col>
+          </Row>
+        )}
 
       </Container>
     </main>
