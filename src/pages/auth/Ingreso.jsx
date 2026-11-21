@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Container, Row, Col } from 'react-bootstrap'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { RUTA_INICIO } from '../../utils/roles'
 
@@ -8,12 +8,14 @@ const ESTADO_INICIAL = { email: '', contrasena: '' }
 
 function Ingreso() {
   const navigate                  = useNavigate()
+  const desde                     = useLocation().state?.desde
   const { sesion, iniciarSesion } = useAuth()
   const [form, setForm]           = useState(ESTADO_INICIAL)
   const [error, setError]         = useState('')
   const [enviando, setEnviando]   = useState(false)
 
-  if (sesion) return <Navigate to={RUTA_INICIO[sesion.rol]} replace />
+  // Si venía de "Solicitar hora", vuelve ahí; si no tiene permiso, RutaProtegida lo redirige a su inicio
+  if (sesion) return <Navigate to={desde ?? RUTA_INICIO[sesion.rol]} replace />
 
   function manejarCambio(e) {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -29,7 +31,7 @@ function Ingreso() {
     setEnviando(true)
     try {
       const usuario = await iniciarSesion({ correo: form.email.trim(), password: form.contrasena })
-      navigate(RUTA_INICIO[usuario.rol] ?? '/')
+      navigate(desde ?? RUTA_INICIO[usuario.rol] ?? '/')
     } catch (err) {
       setError(err.message)
     } finally {

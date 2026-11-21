@@ -7,7 +7,7 @@ function RutaProtegida({ roles }) {
   const { sesion } = useAuth()
   const location = useLocation()
 
-  if (!sesion) return <Navigate to="/ingreso" replace state={{ desde: location.pathname }} />
+  if (!sesion) return <Navigate to="/ingreso" replace state={{ desde: location.pathname + location.search }} />
   if (roles && !roles.includes(sesion.rol)) return <Navigate to={RUTA_INICIO[sesion.rol] ?? '/'} replace />
   return <Outlet />
 }

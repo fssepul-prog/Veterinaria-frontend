@@ -3,6 +3,14 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ROLES, RUTA_INICIO } from '../utils/roles'
 
+const PUBLICO = [
+  ['/', 'Inicio'],
+  ['/nosotros', 'Nosotros'],
+  ['/servicios', 'Servicios'],
+  ['/agenda', 'Agenda'],
+  ['/recursos', 'Recursos'],
+]
+
 // Cada rol ve solo los enlaces de las vistas que puede usar
 const MENU = {
   ADMIN: [
@@ -18,11 +26,7 @@ const MENU = {
     ['/recepcion/fichas', 'Fichas'],
   ],
   CLIENTE: [
-    ['/', 'Inicio'],
-    ['/nosotros', 'Nosotros'],
-    ['/servicios', 'Servicios'],
-    ['/agenda', 'Agenda'],
-    ['/recursos', 'Recursos'],
+    ...PUBLICO,
     ['/citas', 'Solicitar hora'],
     ['/mi-cuenta', 'Mi cuenta'],
   ],
@@ -34,13 +38,13 @@ function Navegacion() {
 
   function salir() {
     cerrarSesion()
-    navigate('/ingreso')
+    navigate('/')
   }
 
   return (
     <Navbar expand="md" className="navbar-vet">
       <Container>
-        <Navbar.Brand as={NavLink} to={sesion ? RUTA_INICIO[sesion.rol] : '/ingreso'} className="navbar-brand-vet">
+        <Navbar.Brand as={NavLink} to={sesion ? RUTA_INICIO[sesion.rol] : '/'} className="navbar-brand-vet">
           <img
             src="/logo.png"
             alt=""
@@ -55,7 +59,7 @@ function Navegacion() {
 
         <Navbar.Collapse id="menu-principal">
           <Nav className="me-auto">
-            {(MENU[sesion?.rol] ?? []).map(([ruta, texto]) => (
+            {(sesion ? MENU[sesion.rol] ?? [] : [...PUBLICO, ['/citas', 'Solicitar hora']]).map(([ruta, texto]) => (
               <Nav.Link key={ruta} as={NavLink} to={ruta} end={ruta === '/'}>{texto}</Nav.Link>
             ))}
           </Nav>

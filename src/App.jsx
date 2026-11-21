@@ -31,18 +31,18 @@ function App() {
         <>
             <Navegacion />
             <Routes>
-                {/* Únicas vistas sin autenticación, según la regla de seguridad del caso */}
-                <Route path="/ingreso"  element={<Ingreso />} />
-                <Route path="/registro" element={<Registro />} />
+                {/* Información pública de la clínica: se ve sin cuenta */}
+                <Route path="/"              element={<Inicio />} />
+                <Route path="/nosotros"      element={<Nosotros />} />
+                <Route path="/servicios"     element={<Servicios />} />
+                <Route path="/servicios/:id" element={<DetalleServicio />} />
+                <Route path="/agenda"        element={<Agenda />} />
+                <Route path="/recursos"      element={<Recursos />} />
+                <Route path="/ingreso"       element={<Ingreso />} />
+                <Route path="/registro"      element={<Registro />} />
 
+                {/* Solicitar hora y todo lo demás exige iniciar sesión */}
                 <Route element={<RutaProtegida />}>
-                    <Route path="/"              element={<Inicio />} />
-                    <Route path="/nosotros"      element={<Nosotros />} />
-                    <Route path="/servicios"     element={<Servicios />} />
-                    <Route path="/servicios/:id" element={<DetalleServicio />} />
-                    <Route path="/agenda"        element={<Agenda />} />
-                    <Route path="/recursos"      element={<Recursos />} />
-
                     <Route element={<RutaProtegida roles={['CLIENTE']} />}>
                         <Route path="/citas"     element={<Citas />} />
                         <Route path="/mi-cuenta" element={<MiCuenta />} />
